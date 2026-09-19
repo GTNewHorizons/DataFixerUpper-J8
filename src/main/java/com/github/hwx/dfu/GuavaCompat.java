@@ -9,13 +9,12 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 public final class GuavaCompat {
-
-    private GuavaCompat() {}
 
     public static <K, V> ImmutableMap.Builder<K, V> mapBuilder() {
         return new KeepingLastMapBuilder<>(4);
@@ -48,6 +47,11 @@ public final class GuavaCompat {
             return left;
         };
         return Collector.of(supplier, accumulator, combiner, ImmutableMap::copyOf);
+    }
+
+    // Guava 17's Supplier doesn't extend java.util.function.Supplier.
+    public static <T> Supplier<T> memoize(com.google.common.base.Supplier<T> delegate) {
+        return Suppliers.memoize(delegate)::get;
     }
 
     public static boolean isSupertypeOf(TypeToken<?> type, TypeToken<?> other) {

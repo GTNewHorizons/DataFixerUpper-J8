@@ -31,6 +31,7 @@ public final class DfuGuavaShimPatcher {
     private static final String IMMUTABLE_MAP = "com/google/common/collect/ImmutableMap";
     private static final String IMMUTABLE_MAP_BUILDER = "com/google/common/collect/ImmutableMap$Builder";
     private static final String TYPE_TOKEN = "com/google/common/reflect/TypeToken";
+    private static final String SUPPLIER = "com/google/common/base/Supplier";
 
     // 1.7.10 has no slf4j, so DFU's logging is redirected to log4j2.
     private static final String LOGGER = "com/github/hwx/dfu/DfuLogger";
@@ -52,6 +53,7 @@ public final class DfuGuavaShimPatcher {
         EXPECTED.put("buildKeepingLast", 5);
         EXPECTED.put("toImmutableMap", 2);
         EXPECTED.put("isSupertypeOf", 2);
+        EXPECTED.put("memoize", 2);
     }
 
     private DfuGuavaShimPatcher() {}
@@ -172,6 +174,13 @@ public final class DfuGuavaShimPatcher {
                                     replacements,
                                     "isSupertypeOf",
                                     "(L" + TYPE_TOKEN + ";L" + TYPE_TOKEN + ";)Z");
+                            return;
+                        }
+                        if (opcode == Opcodes.INVOKESTATIC && owner.equals("com/google/common/base/Suppliers")
+                                && name.equals("memoize")
+                                && descriptor.equals("(L" + SUPPLIER + ";)L" + SUPPLIER + ";")) {
+                            replace("memoize", replacements, "memoize",
+                                    "(L" + SUPPLIER + ";)Ljava/util/function/Supplier;");
                             return;
                         }
                         checkLogger(owner, name, descriptor);
