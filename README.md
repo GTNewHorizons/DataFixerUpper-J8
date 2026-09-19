@@ -28,8 +28,10 @@ A DFU update fails the build if it calls a Guava method the compat class doesn't
 ## Building
 
 ```sh
-./gradlew publishToMavenLocal
+./gradlew build
 ```
+
+The jar is written to `build/libs/downgraded/`.
 
 The version defaults to `10.0.21-1`. JitPack overrides it with the git tag.
 
