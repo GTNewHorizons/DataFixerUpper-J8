@@ -1,16 +1,12 @@
-package com.github.hwx.dfu.build;
+package com.gtnewhorizons.dfu.build;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -26,7 +22,7 @@ import org.objectweb.asm.commons.SimpleRemapper;
 
 public final class DfuGuavaShimPatcher {
 
-    private static final String COMPAT = "com/github/hwx/dfu/GuavaCompat";
+    private static final String COMPAT = "com/gtnewhorizons/dfu/GuavaCompat";
     private static final String IMMUTABLE_LIST = "com/google/common/collect/ImmutableList";
     private static final String IMMUTABLE_MAP = "com/google/common/collect/ImmutableMap";
     private static final String IMMUTABLE_MAP_BUILDER = "com/google/common/collect/ImmutableMap$Builder";
@@ -34,10 +30,10 @@ public final class DfuGuavaShimPatcher {
     private static final String SUPPLIER = "com/google/common/base/Supplier";
 
     // 1.7.10 has no slf4j, so DFU's logging is redirected to log4j2.
-    private static final String LOGGER = "com/github/hwx/dfu/DfuLogger";
+    private static final String LOGGER = "com/gtnewhorizons/dfu/DfuLogger";
     private static final Remapper SLF4J_REMAPPER = new SimpleRemapper(Map.of(
             "org/slf4j/Logger", LOGGER,
-            "org/slf4j/LoggerFactory", "com/github/hwx/dfu/DfuLoggerFactory"));
+            "org/slf4j/LoggerFactory", "com/gtnewhorizons/dfu/DfuLoggerFactory"));
     private static final Set<String> LOGGER_METHODS = Set.of(
             "info(Ljava/lang/String;)V",
             "info(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V",
@@ -64,7 +60,6 @@ public final class DfuGuavaShimPatcher {
         }
 
         Path output = Paths.get(args[1]).toAbsolutePath().normalize();
-        deleteDirectory(output);
         Files.createDirectories(output);
         Map<String, Integer> replacements = new LinkedHashMap<>();
         for (String name : EXPECTED.keySet()) {
@@ -83,7 +78,7 @@ public final class DfuGuavaShimPatcher {
                     continue;
                 }
 
-                byte[] contents = readAllBytes(zip);
+                byte[] contents = zip.readAllBytes();
                 if (entry.getName().startsWith("com/mojang/") && entry.getName().endsWith(".class")) {
                     contents = patchClass(contents, replacements);
                 }
@@ -126,61 +121,44 @@ public final class DfuGuavaShimPatcher {
                                 && descriptor.equals("()L" + IMMUTABLE_MAP_BUILDER + ";")
                                 && (className.equals("com/mojang/serialization/RecordBuilder$MapBuilder")
                                         || className.equals("com/mojang/serialization/JavaOps$FixedMapBuilder"))) {
-                            replace("mapBuilder", replacements, "mapBuilder", descriptor);
+                            replace("mapBuilder", descriptor);
                             return;
                         }
                         if (opcode == Opcodes.INVOKESTATIC && owner.equals(IMMUTABLE_MAP)
                                 && name.equals("builderWithExpectedSize")
                                 && descriptor.equals("(I)L" + IMMUTABLE_MAP_BUILDER + ";")) {
-                            replace(
-                                    "mapBuilderWithExpectedSize",
-                                    replacements,
-                                    "mapBuilderWithExpectedSize",
-                                    descriptor);
+                            replace("mapBuilderWithExpectedSize", descriptor);
                             return;
                         }
                         if (opcode == Opcodes.INVOKESTATIC && owner.equals(IMMUTABLE_LIST)
                                 && name.equals("builderWithExpectedSize")
                                 && descriptor.equals("(I)Lcom/google/common/collect/ImmutableList$Builder;")) {
-                            replace(
-                                    "listBuilderWithExpectedSize",
-                                    replacements,
-                                    "listBuilderWithExpectedSize",
-                                    descriptor);
+                            replace("listBuilderWithExpectedSize", descriptor);
                             return;
                         }
                         if (opcode == Opcodes.INVOKEVIRTUAL && owner.equals(IMMUTABLE_MAP_BUILDER)
                                 && name.equals("buildKeepingLast")
                                 && descriptor.equals("()L" + IMMUTABLE_MAP + ";")) {
-                            replace(
-                                    "buildKeepingLast",
-                                    replacements,
-                                    "buildKeepingLast",
-                                    "(L" + IMMUTABLE_MAP_BUILDER + ";)L" + IMMUTABLE_MAP + ";");
+                            replace("buildKeepingLast", "(L" + IMMUTABLE_MAP_BUILDER + ";)L" + IMMUTABLE_MAP + ";");
                             return;
                         }
                         if (opcode == Opcodes.INVOKESTATIC && owner.equals(IMMUTABLE_MAP)
                                 && name.equals("toImmutableMap")
                                 && descriptor.equals(
                                         "(Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/stream/Collector;")) {
-                            replace("toImmutableMap", replacements, "toImmutableMap", descriptor);
+                            replace("toImmutableMap", descriptor);
                             return;
                         }
                         if (opcode == Opcodes.INVOKEVIRTUAL && owner.equals(TYPE_TOKEN)
                                 && name.equals("isSupertypeOf")
                                 && descriptor.equals("(L" + TYPE_TOKEN + ";)Z")) {
-                            replace(
-                                    "isSupertypeOf",
-                                    replacements,
-                                    "isSupertypeOf",
-                                    "(L" + TYPE_TOKEN + ";L" + TYPE_TOKEN + ";)Z");
+                            replace("isSupertypeOf", "(L" + TYPE_TOKEN + ";L" + TYPE_TOKEN + ";)Z");
                             return;
                         }
                         if (opcode == Opcodes.INVOKESTATIC && owner.equals("com/google/common/base/Suppliers")
                                 && name.equals("memoize")
                                 && descriptor.equals("(L" + SUPPLIER + ";)L" + SUPPLIER + ";")) {
-                            replace("memoize", replacements, "memoize",
-                                    "(L" + SUPPLIER + ";)Ljava/util/function/Supplier;");
+                            replace("memoize", "(L" + SUPPLIER + ";)Ljava/util/function/Supplier;");
                             return;
                         }
                         checkLogger(owner, name, descriptor);
@@ -205,52 +183,13 @@ public final class DfuGuavaShimPatcher {
                         }
                     }
 
-                    private void replace(String replacement, Map<String, Integer> replacements, String name,
-                                         String descriptor) {
-                        replacements.put(replacement, replacements.get(replacement) + 1);
+                    private void replace(String name, String descriptor) {
+                        replacements.put(name, replacements.get(name) + 1);
                         super.visitMethodInsn(Opcodes.INVOKESTATIC, COMPAT, name, descriptor, false);
                     }
                 };
             }
         }, SLF4J_REMAPPER), 0);
         return writer.toByteArray();
-    }
-
-    private static byte[] readAllBytes(InputStream input) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = input.read(buffer)) != -1) {
-            output.write(buffer, 0, read);
-        }
-        return output.toByteArray();
-    }
-
-    private static void deleteDirectory(Path directory) throws IOException {
-        if (!Files.exists(directory)) {
-            return;
-        }
-        try (Stream<Path> paths = Files.walk(directory)) {
-            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.delete(path);
-                } catch (IOException exception) {
-                    throw new DeleteFailedException(exception);
-                }
-            });
-        } catch (DeleteFailedException exception) {
-            throw exception.cause;
-        }
-    }
-
-    private static final class DeleteFailedException extends RuntimeException {
-
-        private static final long serialVersionUID = 1L;
-        private final IOException cause;
-
-        private DeleteFailedException(IOException cause) {
-            super(cause);
-            this.cause = cause;
-        }
     }
 }

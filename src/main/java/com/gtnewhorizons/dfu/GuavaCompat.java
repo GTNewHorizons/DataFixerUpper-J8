@@ -1,4 +1,4 @@
-package com.github.hwx.dfu;
+package com.gtnewhorizons.dfu;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

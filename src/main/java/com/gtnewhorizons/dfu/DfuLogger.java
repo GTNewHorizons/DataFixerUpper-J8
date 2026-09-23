@@ -1,4 +1,4 @@
-package com.github.hwx.dfu;
+package com.gtnewhorizons.dfu;
 
 /** Stands in for {@code org.slf4j.Logger} in DFU; only the methods DFU calls. */
 public interface DfuLogger {

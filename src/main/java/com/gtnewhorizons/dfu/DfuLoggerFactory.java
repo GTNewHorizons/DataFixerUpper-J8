@@ -1,4 +1,4 @@
-package com.github.hwx.dfu;
+package com.gtnewhorizons.dfu;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
