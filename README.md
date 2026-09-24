@@ -31,7 +31,13 @@ A DFU update fails the build if it calls a Guava method the compat class doesn't
 ./gradlew build
 ```
 
-The jar is written to `build/libs/`. The intermediate jars, before downgrading and shading, go to `build/intermediates/`.
+The release publishes three jars in `build/libs/`:
+
+- `DataFixerUpper-J8-<version>.jar`: the self-contained, downgraded jar with relocated JVM Downgrader stubs.
+- `DataFixerUpper-J8-<version>-preshadow.jar`: the downgraded jar without the stubs, for runtimes that provide them separately.
+- `DataFixerUpper-J8-<version>-sources.jar`: upstream DFU sources plus the local compatibility sources.
+
+The patched jar before downgrading stays in `build/intermediates/`.
 
 The version defaults to `10.0.21-1`. CI overrides it with the git tag.
 
