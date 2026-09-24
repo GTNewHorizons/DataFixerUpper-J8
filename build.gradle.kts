@@ -23,12 +23,14 @@ repositories {
 }
 
 val dfu by configurations.creating { isTransitive = false } // DFU alone, the jar that gets patched
+val dfuSources by configurations.creating { isTransitive = false }
 val dfuDeps by configurations.creating { extendsFrom(dfu) } // with its deps, so JVM Downgrader can resolve class hierarchies
 
 val patcher by sourceSets.creating // runs at build time only, never shipped
 
 dependencies {
     dfu("com.mojang:datafixerupper:$dfuVersion")
+    dfuSources("com.mojang:datafixerupper:$dfuVersion:sources")
     // The versions 1.7.10 ships, which the compat classes are written against.
     compileOnly("com.google.guava:guava:17.0")
     compileOnly("org.apache.logging.log4j:log4j-api:2.0-beta9")
@@ -60,7 +62,8 @@ tasks.jar {
 // DFU targets Java 17: downgrade the bytecode to Java 8.
 tasks.downgradeJar {
     classpath = dfuDeps
-    destinationDirectory = intermediates
+    archiveClassifier = "preshadow"
+    destinationDirectory = layout.buildDirectory.dir("libs")
 }
 
 // Shade in the stubs for the Java 9+ APIs DFU calls, so dependents need no extra runtime lib.
@@ -70,7 +73,16 @@ tasks.shadeDowngradedApi {
     destinationDirectory = layout.buildDirectory.dir("libs")
 }
 
-tasks.assemble { dependsOn(tasks.shadeDowngradedApi) }
+val sourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier = "sources"
+    from(provider { dfuSources.files.map { zipTree(it) } }) {
+        exclude("META-INF/MANIFEST.MF")
+    }
+    from(sourceSets.main.get().allSource)
+    from("LICENSE") { into("META-INF") }
+}
+
+tasks.assemble { dependsOn(tasks.shadeDowngradedApi, sourcesJar) }
 
 // The GTNH workflows call this; RetroFuturaGradle provides it in mod repos, here there is nothing to set up.
 tasks.register("setupCIWorkspace")
@@ -79,6 +91,8 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             artifact(tasks.shadeDowngradedApi)
+            artifact(tasks.downgradeJar)
+            artifact(sourcesJar)
         }
     }
     // The release workflow provides the credentials and URL. Its Modrinth and Curseforge steps also run
